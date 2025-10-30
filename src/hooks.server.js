@@ -1,5 +1,5 @@
-import { validateShareTokenServerside, getSharedScheduleDataServerside } from './src/lib/supabaseServiceRole.js';
-import { enhanceCourseOption } from './src/lib/catalog.js';
+import { validateShareTokenServerside, getSharedScheduleDataServerside } from '$lib/supabaseServiceRole.js';
+import { enhanceCourseOption } from '$lib/catalog.js';
 
 export async function handle({ event, resolve }) {
   // Check if this is a shared schedule request
