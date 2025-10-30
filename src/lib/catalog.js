@@ -6,6 +6,7 @@ import catalogData from '$lib/assets/catalog.json';
 
 // Cache the catalog data for quick access
 let catalog = catalogData;
+console.log(`Catalog loaded with ${catalog.length} courses.`);
 
 /**
  * Search courses by code or title
@@ -136,14 +137,21 @@ export function formatCourseForDisplay(course) {
  * @returns {Object} Enhanced course option with catalog details
  */
 export function enhanceCourseOption(courseOption) {
-	const catalogCourse = getCourseByNumber(courseOption.code);
+	// Handle both field names: code (normalized) and course_id (from database)
+	const courseCode = courseOption.code || courseOption.course_id;
+	const catalogCourse = getCourseByNumber(courseCode);
 	
 	if (catalogCourse) {
 		return {
 			...courseOption,
-			name: courseOption.name || catalogCourse.title,
-			credits: catalogCourse.semester_hours,
+			code: courseCode, // Ensure code field exists
+			course_id: courseCode, // Ensure course_id field exists for compatibility
+			name: courseOption.name || courseOption.title || catalogCourse.title,
+			title: courseOption.title || catalogCourse.title, // Ensure title field exists
+			credits: courseOption.credits || catalogCourse.semester_hours,
+			credit_hours: catalogCourse.semester_hours, // For compatibility
 			semesters: catalogCourse.semester || [],
+			semester_offered: catalogCourse.semester || [], // For compatibility
 			description: catalogCourse.description || '',
 			fromCatalog: true
 		};
@@ -151,7 +159,12 @@ export function enhanceCourseOption(courseOption) {
 	
 	return {
 		...courseOption,
+		code: courseCode,
+		course_id: courseCode,
+		name: courseOption.name || courseOption.title || courseCode,
+		title: courseOption.title || courseOption.name || courseCode,
 		semesters: [],
+		semester_offered: [],
 		description: '',
 		fromCatalog: false
 	};

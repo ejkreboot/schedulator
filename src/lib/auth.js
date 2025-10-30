@@ -25,3 +25,35 @@ export const signOut = async () => {
 	}
 	return { error: null };
 };
+
+export const signInWithOtp = async (email, redirectTo = undefined) => {
+	const { data, error } = await supabase.auth.signInWithOtp({
+		email,
+		options: {
+			shouldCreateUser: true,
+			emailRedirectTo: redirectTo
+		}
+	});
+
+	if (error) {
+		console.error('Error sending OTP:', error.message);
+		return { error };
+	}
+
+	return { data, error: null };
+};
+
+export const verifyOtp = async (email, token) => {
+	const { data, error } = await supabase.auth.verifyOtp({
+		email,
+		token,
+		type: 'email'
+	});
+
+	if (error) {
+		console.error('Error verifying OTP:', error.message);
+		return { error };
+	}
+
+	return { data, error: null };
+};

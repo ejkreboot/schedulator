@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in to Schedulator</title>
+</head>
+<body style="margin:0;padding:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+  
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:60px 20px;">
+        
+        <!-- Main Card -->
+        <div style="background:white;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);max-width:400px;width:100%;padding:40px;text-align:center;">
+          
+          <!-- Logo/Brand -->
+          <h1 style="margin:0 0 8px 0;font-size:28px;font-weight:700;color:#1f2937;">Schedulator</h1>
+          <p style="margin:0 0 32px 0;color:#6b7280;font-size:14px;">Your college class scheduling assistant</p>
+          
+          <!-- OTP Code -->
+          <div style="margin:0 0 32px 0;">
+            <p style="margin:0 0 16px 0;color:#374151;font-size:16px;font-weight:500;">Your verification code:</p>
+            <div style="background:#f3f4f6;border-radius:12px;padding:20px;margin:0 0 12px 0;">
+              <span style="font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:32px;font-weight:700;color:#2563eb;letter-spacing:8px;">{{ .Token }}</span>
+            </div>
+            <p style="margin:0;color:#9ca3af;font-size:12px;">This code expires in 10 minutes</p>
+          </div>
+          
+          <!-- Divider -->
+          <div style="display:flex;align-items:center;margin:32px 0;">
+            <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+            <span style="padding:0 16px;color:#9ca3af;font-size:12px;text-transform:uppercase;font-weight:500;">or</span>
+            <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+          </div>
+          
+          <!-- Magic Link Button -->
+          <a href="{{ .ConfirmationURL }}" style="display:block;background:#2563eb;color:white;text-decoration:none;font-weight:600;border-radius:8px;padding:16px 24px;font-size:16px;transition:background-color 0.2s;">
+            Sign in with one click
+          </a>
+          
+          <!-- Security Notice -->
+          <p style="margin:32px 0 0 0;color:#9ca3af;font-size:12px;line-height:1.5;">
+            This email was sent because someone requested access to your Schedulator account. If this wasn't you, you can safely ignore this email.
+          </p>
+          
+        </div>
+        
+      </td>
+    </tr>
+  </table>
+  
+</body>
+</html>

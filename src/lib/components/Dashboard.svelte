@@ -3,6 +3,7 @@
 	import RequirementsForm from './RequirementsForm.svelte';
 	import RequirementsList from './RequirementsList.svelte';
 	import SemesterView from './SemesterView.svelte';
+	import ScheduleSharing from './ScheduleSharing.svelte';
 	import { onMount } from 'svelte';
 	
 	let activeTab = 'requirements';
@@ -46,6 +47,13 @@
 			>
 				Semester Planning
 			</button>
+			<button 
+				class="nav-btn" 
+				class:active={activeTab === 'sharing'}
+				on:click={() => activeTab = 'sharing'}
+			>
+				Sharing
+			</button>
 		</div>
 	</nav>
 
@@ -54,7 +62,7 @@
 			<div class="requirements-section">
 				<h2>Academic Requirements</h2>
 				<p class="section-description">
-					Add and manage your Core, Major, and Pre-graduate school requirements
+					Add and manage your Core, Major, Pre-graduate, and other requirements
 				</p>
 				
 				<div class="requirements-layout">
@@ -72,6 +80,14 @@
 		{:else if activeTab === 'semesters'}
 			<div class="semesters-section">
 				<SemesterView />
+			</div>
+		{:else if activeTab === 'sharing'}
+			<div class="sharing-section">
+				<h2>Schedule Sharing</h2>
+				<p class="section-description">
+					Share your academic schedule with advisors, family, or study partners. Create secure links with customizable permissions and expiration dates.
+				</p>
+				<ScheduleSharing />
 			</div>
 		{:else if activeTab === 'schedule'}
 			<div class="coming-soon">
@@ -95,7 +111,7 @@
 	}
 
 	.header-content {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 1rem 2rem;
 		display: flex;
@@ -139,7 +155,7 @@
 	}
 
 	.nav-container {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 0 2rem;
 		display: flex;
@@ -168,12 +184,13 @@
 	}
 
 	.main-content {
-		max-width: 1200px;
+		max-width: 1280px;
 		margin: 0 auto;
 		padding: 2rem;
 	}
 
-	.requirements-section h2 {
+	.requirements-section h2,
+	.sharing-section h2 {
 		font-size: 1.875rem;
 		font-weight: 700;
 		color: #1e293b;
@@ -211,6 +228,10 @@
 
 	.semesters-section {
 		height: calc(100vh - 140px); /* Account for header and nav */
+		padding: 0;
+	}
+
+	.sharing-section {
 		padding: 0;
 	}
 	

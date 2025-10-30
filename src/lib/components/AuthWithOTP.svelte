@@ -8,7 +8,6 @@
 
 	let email = '';
 	let otp = '';
-	let otpDigits = ['', '', '', '', '', ''];
 	let loading = false;
 	let message = '';
 	let error = '';
@@ -83,7 +82,6 @@
 		showOtpInput = false;
 		otpSent = false;
 		otp = '';
-		otpDigits = ['', '', '', '', '', ''];
 		message = '';
 		error = '';
 	}
@@ -91,95 +89,6 @@
 	function handleResendOtp() {
 		resetForm();
 		handleSignIn();
-	}
-
-	function handleOtpInput(event, index) {
-		const value = event.target.value;
-		
-		// Only allow digits
-		if (value && !/^\d$/.test(value)) {
-			event.target.value = otpDigits[index];
-			return;
-		}
-
-		// Update the digit
-		otpDigits[index] = value;
-		
-		// Auto-advance to next input
-		if (value && index < 5) {
-			const nextInput = document.getElementById(`otp-${index + 1}`);
-			if (nextInput) {
-				nextInput.focus();
-			}
-		}
-		
-		// Update the combined OTP value
-		otp = otpDigits.join('');
-		
-		// Auto-submit when all 6 digits are entered
-		if (otp.length === 6 && !loading) {
-			handleVerifyOtp();
-		}
-	}
-
-	function handleOtpKeydown(event, index) {
-		// Handle backspace
-		if (event.key === 'Backspace') {
-			if (!otpDigits[index] && index > 0) {
-				// If current field is empty, move to previous field and clear it
-				otpDigits[index - 1] = '';
-				const prevInput = document.getElementById(`otp-${index - 1}`);
-				if (prevInput) {
-					prevInput.focus();
-				}
-			} else {
-				// Clear current field
-				otpDigits[index] = '';
-			}
-			otp = otpDigits.join('');
-		}
-		
-		// Handle arrow keys
-		if (event.key === 'ArrowLeft' && index > 0) {
-			const prevInput = document.getElementById(`otp-${index - 1}`);
-			if (prevInput) {
-				prevInput.focus();
-			}
-		} else if (event.key === 'ArrowRight' && index < 5) {
-			const nextInput = document.getElementById(`otp-${index + 1}`);
-			if (nextInput) {
-				nextInput.focus();
-			}
-		}
-	}
-
-	function handleOtpPaste(event, index) {
-		event.preventDefault();
-		
-		const pastedData = event.clipboardData.getData('text');
-		const digits = pastedData.replace(/\D/g, '').slice(0, 6);
-		
-		if (digits.length > 0) {
-			// Fill in the digits starting from the current position
-			for (let i = 0; i < digits.length && (index + i) < 6; i++) {
-				otpDigits[index + i] = digits[i];
-			}
-			
-			// Focus on the next empty field or the last field
-			const nextEmptyIndex = Math.min(index + digits.length, 5);
-			const nextInput = document.getElementById(`otp-${nextEmptyIndex}`);
-			if (nextInput) {
-				nextInput.focus();
-			}
-			
-			// Update the combined OTP value
-			otp = otpDigits.join('');
-			
-			// Auto-submit if we have 6 digits
-			if (otp.length === 6 && !loading) {
-				handleVerifyOtp();
-			}
-		}
 	}
 </script>
 
@@ -225,23 +134,16 @@
 				</div>
 				
 				<div class="form-group">
-					<label for="otp-0">Verification code</label>
-					<div class="otp-container">
-						{#each Array(6) as _, i}
-							<input
-								id="otp-{i}"
-								type="text"
-								class="otp-input"
-								maxlength="1"
-								bind:value={otpDigits[i]}
-								on:input={(e) => handleOtpInput(e, i)}
-								on:keydown={(e) => handleOtpKeydown(e, i)}
-								on:paste={(e) => handleOtpPaste(e, i)}
-								disabled={loading}
-								autocomplete="one-time-code"
-							/>
-						{/each}
-					</div>
+					<label for="otp">Verification code</label>
+					<input
+						id="otp"
+						type="text"
+						bind:value={otp}
+						placeholder="Enter 6-digit code"
+						maxlength="6"
+						disabled={loading}
+						required
+					/>
 				</div>
 				
 				<button type="submit" class="submit-btn" disabled={loading}>
@@ -329,46 +231,6 @@
 		font-weight: 500;
 		color: #374151;
 		margin-bottom: 0.5rem;
-	}
-
-	.otp-container {
-		display: flex;
-		gap: 0.5rem;
-		justify-content: center;
-		margin-top: 0.75rem;
-	}
-
-	.otp-input {
-		width: 3rem;
-		height: 3rem;
-		text-align: center;
-		font-size: 1.25rem;
-		font-weight: 600;
-		border: 2px solid #d1d5db;
-		border-radius: 0.5rem;
-		transition: all 0.2s ease;
-		background: white;
-	}
-
-	.otp-input:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-		transform: scale(1.05);
-	}
-
-	.otp-input:disabled {
-		background-color: #f9fafb;
-		color: #6b7280;
-		cursor: not-allowed;
-		border-color: #e5e7eb;
-	}
-
-	/* Add subtle animation when digit is entered */
-	.otp-input:not(:placeholder-shown) {
-		border-color: #10b981;
-		background-color: #f0fdf4;
-		color: #065f46;
 	}
 
 	input {
@@ -517,19 +379,6 @@
 	@keyframes spin {
 		to {
 			transform: rotate(360deg);
-		}
-	}
-
-	/* Mobile responsiveness for OTP inputs */
-	@media (max-width: 480px) {
-		.otp-input {
-			width: 2.5rem;
-			height: 2.5rem;
-			font-size: 1.1rem;
-		}
-		
-		.otp-container {
-			gap: 0.375rem;
 		}
 	}
 </style>

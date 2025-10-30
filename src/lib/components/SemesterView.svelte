@@ -11,6 +11,12 @@
 	} from '../semesters.js';
 	import { supabase } from '../supabaseClient.js';
 
+	// Props for shared mode
+	export let sharedMode = false;
+	export let shareData = null;
+	export let scheduleData = null;
+	export let shareToken = null;
+
 	// State variables
 	let requirements = [];
 	let academicYears = [];
@@ -19,6 +25,9 @@
 	let error = null;
 	let draggedCourse = null;
 	let dragOverSemester = null;
+
+	// Computed properties for shared mode
+	$: isReadOnly = sharedMode && shareData?.permissionLevel === 'view';
 
 	// Load schedule data from database
 	async function loadScheduleData(userId) {
@@ -179,24 +188,91 @@
 		});
 		
 		// Update requirements to mark scheduled courses
-		requirements = requirements.map(req => ({
-			...req,
-			courses: req.courses.map(course => {
-				const scheduledInfo = scheduledCourses.get(course.code);
-				if (scheduledInfo) {
+		requirements = requirements.map(req => {
+			// Handle both data formats: req.courses (normal mode) vs req.course_options (shared mode)
+			const courses = req.courses || req.course_options || [];
+			
+			return {
+				...req,
+				courses: courses.map(course => {
+					const courseCode = course.code || course.course_id;
+					const scheduledInfo = scheduledCourses.get(courseCode);
+					if (scheduledInfo) {
+						return {
+							...course,
+							scheduled: true,
+							scheduledSemester: scheduledInfo.semester
+						};
+					}
 					return {
 						...course,
-						scheduled: true,
-						scheduledSemester: scheduledInfo.semester
+						scheduled: false,
+						scheduledSemester: null
 					};
+				})
+			};
+		});
+	}
+
+	// Build academic year structure from shared data
+	async function buildAcademicYearStructureFromSharedData() {
+		if (!scheduleData.semesters) return;
+
+		const yearMap = new Map();
+		
+		// Group semesters by year
+		scheduleData.semesters.forEach(semester => {
+			const academicYear = semester.term_type === 'Fall' ? semester.year : semester.year - 1;
+			
+			if (!yearMap.has(academicYear)) {
+				yearMap.set(academicYear, {
+					year: academicYear,
+					semesters: []
+				});
+			}
+			
+			// Add scheduled courses to semester and normalize the format
+			const semesterWithCourses = {
+				...semester,
+				type: semester.term_type, // Normalize term_type to type
+				courses: getScheduledCoursesForSharedSemester(semester.id)
+			};
+			
+			yearMap.get(academicYear).semesters.push(semesterWithCourses);
+		});
+
+		academicYears = Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
+	}
+
+	// Get scheduled courses for a semester in shared mode
+	function getScheduledCoursesForSharedSemester(semesterId) {
+		if (!scheduleData.scheduledCourses) return [];
+		
+		return scheduleData.scheduledCourses
+			.filter(sc => sc.semester_id === semesterId)
+			.map(sc => {
+				// Find the course details from the original requirements data (before normalization)
+				for (let req of scheduleData.requirements || []) {
+					const course = req.course_options?.find(c => c.course_id === sc.course_code);
+					if (course) {
+						return { 
+							...course, 
+							code: course.course_id, // Normalize field names
+							name: course.title,
+							scheduled_course_id: sc.id 
+						};
+					}
 				}
-				return {
-					...course,
-					scheduled: false,
-					scheduledSemester: null
+				// If not found in requirements, create a basic course object
+				return { 
+					code: sc.course_code, 
+					name: sc.course_name || `${sc.course_code} - Course Details Missing`, 
+					title: sc.course_name || `${sc.course_code} - Course Details Missing`,
+					course_id: sc.course_code,
+					scheduled_course_id: sc.id,
+					credits: sc.credits || 3
 				};
-			})
-		}));
+			});
 	}
 
 	// Load user requirements and existing schedule data
@@ -204,22 +280,36 @@
 		try {
 			loading = true;
 			
-			// Get current user
-			const { data: { user } } = await supabase.auth.getUser();
-			if (!user) {
-				error = 'Please log in to view your schedule.';
-				loading = false;
-				return;
+			if (sharedMode && scheduleData) {
+				// Shared mode: use provided data and normalize the structure
+				requirements = (scheduleData.requirements || []).map(req => ({
+					...req,
+					courses: (req.course_options || []).map(course => ({
+						...course,
+						code: course.course_id, // Normalize course_id to code
+						name: course.title // Normalize title to name
+					}))
+				}));
+				await buildAcademicYearStructureFromSharedData();
+				markScheduledCoursesInRequirements();
+			} else {
+				// Normal mode: load user data
+				const { data: { user } } = await supabase.auth.getUser();
+				if (!user) {
+					error = 'Please log in to view your schedule.';
+					loading = false;
+					return;
+				}
+				
+				// Load user requirements
+				requirements = await loadUserRequirements();
+				
+				// Load existing schedule data
+				await loadScheduleData(user.id);
+				
+				// Mark any scheduled courses in requirements
+				markScheduledCoursesInRequirements();
 			}
-			
-			// Load user requirements
-			requirements = await loadUserRequirements();
-			
-			// Load existing schedule data
-			await loadScheduleData(user.id);
-			
-			// Mark any scheduled courses in requirements
-			markScheduledCoursesInRequirements();
 			
 			loading = false;
 		} catch (err) {
@@ -255,9 +345,14 @@
 
 	// Drag and drop handlers
 	function handleDragStart(event, course) {
+		if (isReadOnly) {
+			event.preventDefault();
+			return;
+		}
+		
 		draggedCourse = course;
 		event.dataTransfer.effectAllowed = 'move';
-		event.dataTransfer.setData('text/plain', course.code);
+		event.dataTransfer.setData('text/plain', course.code || course.course_id);
 		
 		// Add visual feedback
 		event.target.style.opacity = '0.5';
@@ -272,10 +367,10 @@
 	}
 
 	function handleDragOver(event, semester) {
-		if (!draggedCourse) return;
+		if (!draggedCourse || isReadOnly) return;
 		
 		// Check if course can be offered in this semester
-		if (isCourseOfferedInSemester(draggedCourse.code, semester.type)) {
+		if (isCourseOfferedInSemester(draggedCourse.code || draggedCourse.course_id, semester.term_type || semester.type)) {
 			event.preventDefault();
 			event.dataTransfer.dropEffect = 'move';
 			
@@ -292,49 +387,78 @@
 		event.preventDefault();
 		dragOverSemester = null;
 		
+		// Prevent drops in read-only mode
+		if (isReadOnly) return;
+		
 		// Store dragged course locally before it gets reset
 		const courseToSchedule = draggedCourse;
 		
 		if (!courseToSchedule) return;
 		
 		// Validate that course can be offered in this semester
-		if (!isCourseOfferedInSemester(courseToSchedule.code, semester.type)) {
-			alert(`${courseToSchedule.code} is not offered in ${semester.type} semester.`);
+		const courseCode = courseToSchedule.code || courseToSchedule.course_id;
+		if (!isCourseOfferedInSemester(courseCode, semester.term_type || semester.type)) {
+			alert(`${courseCode} is not offered in ${semester.term_type || semester.type} semester.`);
 			return;
 		}
 		
 		// Check if course is already scheduled in this semester
-		if (semester.courses.some(course => course.code === courseToSchedule.code)) {
-			alert(`${courseToSchedule.code} is already scheduled for ${semester.type} ${semester.year}.`);
+		if (semester.courses.some(course => (course.code || course.course_id) === courseCode)) {
+			alert(`${courseCode} is already scheduled for ${semester.term_type || semester.type} ${semester.year}.`);
 			return;
 		}
 		
 		try {
-			// Get current user
-			const { data: { user } } = await supabase.auth.getUser();
-			if (!user) return;
-			
-			// Save to database
-			const { data: scheduledCourse, error } = await scheduleCourse({
-				user_id: user.id,
-				semester_id: semester.id,
-				requirement_id: courseToSchedule.requirementId || null,
-				course_code: courseToSchedule.code,
-				course_name: courseToSchedule.name,
-				credits: courseToSchedule.credits,
-				status: 'planned'
-			});
-			
-			if (error) {
-				console.error('Error scheduling course:', error);
-				alert('Failed to schedule course. Please try again.');
-				return;
+			if (sharedMode) {
+				// Shared mode: use API endpoint
+				const response = await fetch(`/api/update-shared-course?share=${shareToken}`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						courseId: courseToSchedule.code || courseToSchedule.course_id,
+						toSemesterId: semester.id,
+						courseData: {
+							name: courseToSchedule.name || courseToSchedule.title,
+							title: courseToSchedule.title || courseToSchedule.name,
+							credits: courseToSchedule.credits || courseToSchedule.credit_hours,
+							credit_hours: courseToSchedule.credit_hours || courseToSchedule.credits
+						}
+					})
+				});
+
+				const result = await response.json();
+				if (!result.success) {
+					console.error('Error scheduling course:', result.error);
+					alert(`Failed to schedule course: ${result.error}`);
+					return;
+				}
+			} else {
+				// Normal mode: direct database call
+				const { data: { user } } = await supabase.auth.getUser();
+				if (!user) return;
+				
+				const { data: scheduledCourse, error } = await scheduleCourse({
+					user_id: user.id,
+					semester_id: semester.id,
+					requirement_id: courseToSchedule.requirementId || null,
+					course_code: courseToSchedule.code,
+					course_name: courseToSchedule.name,
+					credits: courseToSchedule.credits,
+					status: 'planned'
+				});
+				
+				if (error) {
+					console.error('Error scheduling course:', error);
+					alert('Failed to schedule course. Please try again.');
+					return;
+				}
 			}
 			
-			// Add course to semester with database ID
+			// Add course to semester in UI
 			const newCourse = { 
-				...courseToSchedule, 
-				id: scheduledCourse.id 
+				...courseToSchedule
 			};
 			semester.courses = [...semester.courses, newCourse];
 			
@@ -429,16 +553,16 @@
 						<div class="courses-grid">
 							{#each requirement.courses.filter(course => !course.scheduled) as course}
 							<div 
-								class="course-card draggable"
-								draggable="true"
-								role="button"
-								tabindex="0"
+								class="course-card {isReadOnly ? 'read-only' : 'draggable'}"
+								draggable={!isReadOnly}
+								role={isReadOnly ? "" : "button"}
+								tabindex={isReadOnly ? "" : "0"}
 								on:dragstart={(e) => handleDragStart(e, course)}
 								on:dragend={handleDragEnd}
 								title="{course.description || (course.name + ' - ' + getCourseCredits(course) + ' credits')}"
 							>
-								<div class="course-code">{course.code}</div>
-								<div class="course-name">{course.name}</div>
+								<div class="course-code">{course.code || course.course_id}</div>
+								<div class="course-name">{course.name || course.title}</div>
 								<div class="course-meta">
 									<span class="course-credits">{getCourseCredits(course)} cr</span>
 									{#if course.semesters && course.semesters.length > 0}
@@ -467,9 +591,11 @@
 			<div class="schedule-panel">
 				<div class="schedule-header">
 					<h2>Academic Schedule</h2>
-					<button class="add-year-btn" on:click={addAcademicYear}>
-						+ Add Academic Year
-					</button>
+					{#if !sharedMode}
+						<button class="add-year-btn" on:click={addAcademicYear}>
+							+ Add Academic Year
+						</button>
+					{/if}
 				</div>
 
 				{#each academicYears as year}
@@ -499,8 +625,8 @@
 										{#each semester.courses as course}
 											<div class="scheduled-course" title="{course.description || (course.name + ' - ' + getCourseCredits(course) + ' credits')}">
 											<div class="course-info">
-												<span class="course-code">{course.code}</span>
-												<span class="course-name">{course.name}</span>
+												<span class="course-code">{course.code || course.course_id}</span>
+												<span class="course-name">{course.name || course.title}</span>
 												<div class="course-meta-scheduled">
 													<span class="course-credits">{getCourseCredits(course)} cr</span>
 													{#if course.semesters && course.semesters.length > 0}
@@ -543,7 +669,7 @@
 <style>
 	.semester-view {
 		padding: 20px;
-		max-width: 1400px;
+		max-width: 1280px;
 		margin: 0 auto;
 	}
 
@@ -643,6 +769,7 @@
 		cursor: grab;
 		transition: all 0.2s ease;
 		position: relative;
+		max-width: 85%;
 	}
 
 	.course-card:hover {
@@ -655,17 +782,32 @@
 		cursor: grabbing;
 	}
 
+	.course-card.read-only {
+		cursor: default;
+		opacity: 0.7;
+	}
+
+	.course-card.read-only:hover {
+		border-color: #e9ecef;
+		box-shadow: none;
+		transform: none;
+	}
+
 	.course-code {
 		font-weight: bold;
 		color: #007bff;
 		font-size: 14px;
 	}
 
+	
 	.course-name {
-		font-size: 12px;
-		color: #495057;
-		margin: 4px 0;
-		line-height: 1.3;
+		font-size: 0.875rem;
+		color: #64748b;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex-shrink: 1;
+		padding-bottom: 10px;
 	}
 
 	.course-meta {
@@ -780,6 +922,7 @@
 		grid-template-columns: 1fr 1fr;
 		grid-template-rows: 1fr auto;
 		gap: 20px;
+		width: 100%;
 	}
 
 	.semester-container {
@@ -788,6 +931,8 @@
 		border-radius: 12px;
 		padding: 15px;
 		min-height: 200px;
+		width: 100%;
+		min-width: 0; /* Allow content to shrink */
 		transition: all 0.2s ease;
 	}
 
@@ -834,6 +979,8 @@
 		padding: 8px;
 		background: white;
 		transition: all 0.2s ease;
+		width: 100%;
+		overflow: hidden;
 	}
 
 	.scheduled-course {
@@ -855,6 +1002,8 @@
 
 	.course-info {
 		flex: 1;
+		min-width: 0; /* Allow content to shrink */
+		overflow: hidden;
 	}
 
 	.scheduled-course .course-code {
@@ -869,6 +1018,9 @@
 		font-size: 11px;
 		color: #495057;
 		margin: 2px 0;
+		line-height: 1.3;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
 	}
 
 	.scheduled-course .course-credits {

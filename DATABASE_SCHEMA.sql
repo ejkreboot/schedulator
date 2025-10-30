@@ -214,6 +214,10 @@ CREATE INDEX idx_semesters_user_id ON semesters(user_id);
 CREATE INDEX idx_semesters_academic_year ON semesters(academic_year_id);
 CREATE INDEX idx_semesters_year_term ON semesters(year, term_type);
 
+-- Create unique constraint to prevent duplicate course enrollments per user
+ALTER TABLE scheduled_courses ADD CONSTRAINT scheduled_courses_user_course_unique 
+  UNIQUE (user_id, course_code);
+
 CREATE INDEX idx_scheduled_courses_user_id ON scheduled_courses(user_id);
 CREATE INDEX idx_scheduled_courses_semester ON scheduled_courses(semester_id);
 CREATE INDEX idx_scheduled_courses_requirement ON scheduled_courses(requirement_id);
@@ -238,15 +242,57 @@ WHERE course_options IS NULL OR course_options = '[]'::jsonb;
 */
 
 -- =====================================================
+-- SCHEDULE SHARING TABLES
+-- =====================================================
+
+-- Create schedule_shares table for sharing functionality
+CREATE TABLE schedule_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  share_token UUID UNIQUE DEFAULT gen_random_uuid() NOT NULL,
+  permission_level VARCHAR(10) NOT NULL CHECK (permission_level IN ('view', 'edit')) DEFAULT 'view',
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  last_accessed TIMESTAMP WITH TIME ZONE,
+  access_count INTEGER DEFAULT 0,
+  description TEXT -- Optional description of what's being shared
+);
+
+-- Enable Row Level Security for schedule_shares
+ALTER TABLE schedule_shares ENABLE ROW LEVEL SECURITY;
+
+-- Schedule Shares Policies
+CREATE POLICY "Users can manage their own shares" ON schedule_shares
+  FOR ALL USING (auth.uid() = owner_id);
+
+CREATE POLICY "Anyone can access valid shares" ON schedule_shares
+  FOR SELECT USING (
+    (expires_at IS NULL OR expires_at > TIMEZONE('utc'::text, NOW()))
+  );
+
+-- Create trigger for schedule_shares updated_at
+CREATE TRIGGER update_schedule_shares_updated_at 
+  BEFORE UPDATE ON schedule_shares 
+  FOR EACH ROW 
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Create indexes for better performance
+CREATE INDEX idx_schedule_shares_owner ON schedule_shares(owner_id);
+CREATE INDEX idx_schedule_shares_token ON schedule_shares(share_token);
+CREATE INDEX idx_schedule_shares_expires ON schedule_shares(expires_at);
+
+-- =====================================================
 -- SETUP COMPLETE
 -- =====================================================
 -- All tables, policies, functions, and indexes have been created.
--- Your Schedulator app is now ready to use!
+-- Your Schedulator app is now ready to use with sharing functionality!
 -- 
 -- Next steps:
 -- 1. Test the requirements functionality
 -- 2. Navigate to "Semester Planning" in the app
 -- 3. Start dragging courses from requirements to semesters
+-- 4. Use the sharing feature to collaborate with others
 -- 
 -- The system will automatically create default academic years 
 -- and semesters when you first use the semester planning feature.

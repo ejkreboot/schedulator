@@ -194,7 +194,7 @@
 							on:select={handleCourseSelect}
 						/>
 						<p class="autocomplete-help">
-							Start typing to search {Math.floor(9565).toLocaleString()} courses in the catalog
+							Start typing to search over 1300 courses in the catalog
 						</p>
 					</div>
 					
@@ -558,6 +558,7 @@
 		text-overflow: ellipsis;
 		max-width: 20rem;
 		flex-shrink: 1;
+		padding-bottom: 10px;
 	}
 	
 	.course-credits {
