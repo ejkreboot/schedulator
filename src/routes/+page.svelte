@@ -84,6 +84,7 @@
 {/if}
 
 <style>
+	
 	.loading-container {
 		min-height: 100vh;
 		display: flex;

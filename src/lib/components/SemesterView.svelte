@@ -483,24 +483,46 @@
 
 	async function removeCourseFromSemester(course, semester) {
 		try {
-			// Delete from database
-			if (course.id) {
-				const { error } = await deleteScheduledCourse(course.id);
-				if (error) {
-					console.error('Error removing course:', error);
-					alert('Failed to remove course. Please try again.');
+			if (sharedMode) {
+				// Shared mode: use API endpoint
+				const response = await fetch(`/api/update-shared-course?share=${shareToken}`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						courseId: course.code || course.course_code,
+						toSemesterId: null, // null indicates removal
+						courseData: null
+					})
+				});
+
+				const result = await response.json();
+				if (!result.success) {
+					console.error('Error removing course:', result.error);
+					alert(`Failed to remove course: ${result.error}`);
 					return;
+				}
+			} else {
+				// Normal mode: direct database call
+				if (course.id) {
+					const { error } = await deleteScheduledCourse(course.id);
+					if (error) {
+						console.error('Error removing course:', error);
+						alert('Failed to remove course. Please try again.');
+						return;
+					}
 				}
 			}
 			
 			// Remove course from semester
-			semester.courses = semester.courses.filter(c => c.code !== course.code);
+			semester.courses = semester.courses.filter(c => (c.code || c.course_code) !== (course.code || course.course_code));
 			
 			// Mark course as unscheduled in requirements
 			requirements = requirements.map(req => ({
 				...req,
 				courses: req.courses.map(c => 
-					c.code === course.code 
+					(c.code || c.course_code) === (course.code || course.course_code)
 						? { ...c, scheduled: false, scheduledSemester: null }
 						: c
 				)
@@ -769,7 +791,7 @@
 		cursor: grab;
 		transition: all 0.2s ease;
 		position: relative;
-		max-width: 85%;
+		max-width: 100%;
 	}
 
 	.course-card:hover {
