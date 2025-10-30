@@ -1,37 +1,44 @@
 <script>
-	import { user, loading } from '$lib/auth.js';
+	import { user, loading, signOut } from '$lib/auth.js';
 	import Auth from '$lib/components/Auth.svelte';
 	import Dashboard from '$lib/components/Dashboard.svelte';
 	import SemesterView from '$lib/components/SemesterView.svelte';
-
 	export let data = {};
+	const handleSignOut = async () => {
+		await signOut();
+	};
+
 </script>
+
+	<header class="header">
+		<div class="header-content">
+			<div style="float: left;">
+				<a href="/" data-sveltekit-reload><img style="float: left; margin-right: 8px;" src="/logo_256.png" alt="Schedulator Logo" class="logo" height="64" />
+			<h1 style="float:left; padding-top:20px;">Schedulator</h1></a>
+			</div>
+			<div class="user-info">
+				{#if $user}
+					<span>Welcome, {$user?.email}</span>
+					<button class="sign-out-btn" on:click={handleSignOut}>Sign Out</button>
+				{/if}
+			</div>
+		</div>
+	</header>
 
 {#if data.sharedSchedule}
 	<!-- Shared schedule mode -->
 	<div class="shared-dashboard">
-		<!-- Standard Schedulator Header -->
-		<header class="header">
-			<div class="header-content">
-				<h1>Schedulator</h1>
-				<div class="shared-info">
+		<!-- Shared Schedule Info Banner -->
+		<div class="info-banner" style="padding-left: 60px;">
+			<div class="banner-content">
+				<div class="shared-info" style="display: flex; align-items: center; gap: 1rem;">
 					<div class="shared-notification">
 						<svg class="shared-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
 						</svg>
 						<span class="shared-label">Shared Schedule</span>
 					</div>
-					<span class="permission-badge {data.sharedSchedule.shareData.permissionLevel === 'edit' ? 'permission-edit' : 'permission-view'}">
-						{data.sharedSchedule.shareData.permissionLevel === 'edit' ? 'Can Edit' : 'View Only'}
-					</span>
-				</div>
-			</div>
-		</header>
-
-		<!-- Shared Schedule Info Banner -->
-		<div class="info-banner">
-			<div class="banner-content">
-				<div class="banner-header">
+				<div class="banner-header" style="padding-top: 10px;">
 					{#if data.sharedSchedule.shareData.description}
 						<h2 class="schedule-title">{data.sharedSchedule.shareData.description}</h2>
 					{:else}
@@ -56,6 +63,7 @@
 							You can view and edit this academic schedule. Drag courses from requirements to semesters to make changes.
 						</p>
 					{/if}
+				</div>
 				</div>
 			</div>
 		</div>
@@ -84,6 +92,51 @@
 {/if}
 
 <style>
+
+	.header {
+		background: white;
+		border-bottom: 1px solid #e2e8f0;
+		box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+	}
+
+	.header-content {
+		max-width: 1280px;
+		margin: 0 auto;
+		padding: 1rem 2rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.header h1 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0;
+	}
+
+	.user-info {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		font-size: 0.875rem;
+		color: #64748b;
+	}
+
+	.sign-out-btn {
+		background: #ef4444;
+		color: white;
+		border: none;
+		padding: 0.5rem 1rem;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.sign-out-btn:hover {
+		background: #dc2626;
+	}
 	
 	.loading-container {
 		min-height: 100vh;

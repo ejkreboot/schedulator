@@ -1,5 +1,4 @@
 <script>
-	import { user, signOut } from '$lib/auth.js';
 	import RequirementsForm from './RequirementsForm.svelte';
 	import RequirementsList from './RequirementsList.svelte';
 	import SemesterView from './SemesterView.svelte';
@@ -9,10 +8,6 @@
 	let activeTab = 'requirements';
 	let requirementsList;
 	
-	const handleSignOut = async () => {
-		await signOut();
-	};
-	
 	function handleRequirementAdded(event) {
 		if (requirementsList) {
 			requirementsList.handleRequirementAdded(event);
@@ -21,16 +16,6 @@
 </script>
 
 <div class="dashboard">
-	<header class="header">
-		<div class="header-content">
-			<h1>Schedulator</h1>
-			<div class="user-info">
-				<span>Welcome, {$user?.email}</span>
-				<button class="sign-out-btn" on:click={handleSignOut}>Sign Out</button>
-			</div>
-		</div>
-	</header>
-
 	<nav class="navigation">
 		<div class="nav-container">
 			<button 
@@ -102,51 +87,6 @@
 	.dashboard {
 		min-height: 100vh;
 		background-color: #f8fafc;
-	}
-
-	.header {
-		background: white;
-		border-bottom: 1px solid #e2e8f0;
-		box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-	}
-
-	.header-content {
-		max-width: 1280px;
-		margin: 0 auto;
-		padding: 1rem 2rem;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.header h1 {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 0;
-	}
-
-	.user-info {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		font-size: 0.875rem;
-		color: #64748b;
-	}
-
-	.sign-out-btn {
-		background: #ef4444;
-		color: white;
-		border: none;
-		padding: 0.5rem 1rem;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.sign-out-btn:hover {
-		background: #dc2626;
 	}
 
 	.navigation {
