@@ -1,11 +1,14 @@
 <script>
-	import { createRequirement } from '$lib/requirements.js';
+	import { createRequirement, updateRequirement } from '$lib/requirements.js';
 	import { createEventDispatcher } from 'svelte';
 	import { user } from '$lib/auth.js';
 	import { enhanceCourseOption } from '$lib/catalog.js';
 	import CourseAutocomplete from './CourseAutocomplete.svelte';
 	
 	const dispatch = createEventDispatcher();
+	
+	// Props for editing mode
+	export let editingRequirement = null;
 	
 	let formData = {
 		title: '',
@@ -40,6 +43,23 @@
 		{ value: 4, label: '4 - High' },
 		{ value: 5, label: '5 - Highest' }
 	];
+	
+	// Reactive: Load editing requirement data
+	$: if (editingRequirement) {
+		formData = {
+			title: editingRequirement.title || '',
+			description: editingRequirement.description || '',
+			category: editingRequirement.category || 'Core',
+			course_options: editingRequirement.course_options ? [...editingRequirement.course_options] : [],
+			credits: editingRequirement.credits,
+			priority: editingRequirement.priority || 3,
+			notes: editingRequirement.notes || ''
+		};
+		error = null;
+	}
+	
+	// Computed: Check if we're in editing mode
+	$: isEditing = editingRequirement !== null;
 	
 	function addCourseOption() {
 		if (!newCourseCode.trim()) return;
@@ -119,39 +139,75 @@
 		isSubmitting = true;
 		error = null;
 		
-		// Add user_id to the form data
-		const requirementData = {
-			...formData,
-			user_id: $user.id
-		};
+		let result;
 		
-		const { data, error: submitError } = await createRequirement(requirementData);
+		if (isEditing) {
+			// Update existing requirement
+			result = await updateRequirement(editingRequirement.id, {
+				title: formData.title,
+				description: formData.description,
+				category: formData.category,
+				course_options: formData.course_options,
+				credits: formData.credits,
+				priority: formData.priority,
+				notes: formData.notes
+			});
+		} else {
+			// Create new requirement
+			const requirementData = {
+				...formData,
+				user_id: $user.id
+			};
+			result = await createRequirement(requirementData);
+		}
+		
+		const { data, error: submitError } = result;
 		
 		if (submitError) {
 			error = submitError.message;
 		} else {
 			// Reset form
-			formData = {
-				title: '',
-				description: '',
-				category: 'Core',
-				course_options: [],
-				credits: null,
-				priority: 3,
-				notes: ''
-			};
-			clearCourseInputs();
+			resetForm();
 			
 			// Notify parent component
-			dispatch('requirementAdded', data);
+			if (isEditing) {
+				dispatch('requirementUpdated', data);
+			} else {
+				dispatch('requirementAdded', data);
+			}
 		}
 		
 		isSubmitting = false;
 	}
+	
+	function resetForm() {
+		formData = {
+			title: '',
+			description: '',
+			category: 'Core',
+			course_options: [],
+			credits: null,
+			priority: 3,
+			notes: ''
+		};
+		clearCourseInputs();
+	}
+	
+	function cancelEdit() {
+		resetForm();
+		dispatch('cancelEdit');
+	}
 </script>
 
 <div class="form-container">
-	<h3>Add New Requirement</h3>
+	<div class="form-header">
+		<h3>{isEditing ? 'Edit Requirement' : 'Add New Requirement'}</h3>
+		{#if isEditing}
+			<button type="button" class="cancel-edit-btn" on:click={cancelEdit}>
+				Cancel Edit
+			</button>
+		{/if}
+	</div>
 	
 	<form on:submit={handleSubmit} class="requirement-form">
 		{#if error}
@@ -271,7 +327,7 @@
 				id="credits"
 				bind:value={formData.credits}
 				min="1"
-				max="10"
+				max="100"
 				placeholder="e.g., 3"
 			/>
 		</div>
@@ -310,17 +366,43 @@
 			class="submit-btn"
 			disabled={isSubmitting}
 		>
-			{isSubmitting ? 'Adding...' : 'Add Requirement'}
+			{#if isSubmitting}
+				{isEditing ? 'Updating...' : 'Adding...'}
+			{:else}
+				{isEditing ? 'Update Requirement' : 'Add Requirement'}
+			{/if}
 		</button>
 	</form>
 </div>
 
 <style>
+	.form-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.5rem;
+	}
+	
 	.form-container h3 {
 		font-size: 1.125rem;
 		font-weight: 600;
 		color: #1e293b;
-		margin-bottom: 1.5rem;
+		margin: 0;
+	}
+	
+	.cancel-edit-btn {
+		background: #6b7280;
+		color: white;
+		border: none;
+		padding: 0.5rem 1rem;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+	
+	.cancel-edit-btn:hover {
+		background: #4b5563;
 	}
 	
 	.requirement-form {

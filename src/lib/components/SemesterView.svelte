@@ -548,6 +548,23 @@
 	function getSemesterCredits(semester) {
 		return semester.courses.reduce((total, course) => total + getCourseCredits(course), 0);
 	}
+	
+	function getRequirementCreditProgress(requirement) {
+		// Calculate credits from scheduled courses in this requirement
+		const scheduledCredits = requirement.courses
+			.filter(course => course.scheduled)
+			.reduce((total, course) => total + getCourseCredits(course), 0);
+		
+		// Get target credits from requirement (fallback to sum of all course credits if not specified)
+		const targetCredits = requirement.credits || 
+			requirement.courses.reduce((total, course) => total + getCourseCredits(course), 0);
+			
+		return {
+			scheduled: scheduledCredits,
+			target: targetCredits,
+			percentage: targetCredits > 0 ? Math.round((scheduledCredits / targetCredits) * 100) : 0
+		};
+	}
 </script>
 
 <div class="semester-view">
@@ -562,6 +579,7 @@
 				<h2>Course Requirements</h2>
 				
 				{#each requirements as requirement}
+					{@const progress = getRequirementCreditProgress(requirement)}
 					<div class="requirement-group">
 						<div class="requirement-header">
 							<h3>{requirement.name}</h3>
@@ -569,6 +587,26 @@
 								{requirement.category}
 							</span>
 						</div>
+						
+						<!-- Credit Progress Display -->
+						<div class="credit-progress">
+							<div class="credit-summary">
+								<span class="credits-text">
+									<strong>{progress.scheduled}</strong> of <strong>{progress.target}</strong> credits scheduled
+								</span>
+								<span class="percentage" class:complete={progress.percentage >= 100}>
+									{progress.percentage}%
+								</span>
+							</div>
+							<div class="progress-bar">
+								<div 
+									class="progress-fill" 
+									class:complete={progress.percentage >= 100}
+									style="width: {Math.min(progress.percentage, 100)}%"
+								></div>
+							</div>
+						</div>
+						
 						{#if requirement.description}
 							<p class="requirement-description">{requirement.description}</p>
 						{/if}
@@ -739,6 +777,7 @@
 
 	.requirement-group {
 		margin-bottom: 25px;
+		min-width: 300px;
 	}
 
 	.requirement-header {
@@ -748,6 +787,60 @@
 		margin-bottom: 12px;
 		padding-bottom: 8px;
 		border-bottom: 2px solid #dee2e6;
+	}
+	
+	/* Credit Progress Styles */
+	.credit-progress {
+		margin-bottom: 16px;
+		background: white;
+		border-radius: 8px;
+		padding: 12px;
+		border: 1px solid #e9ecef;
+	}
+	
+	.credit-summary {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 8px;
+	}
+	
+	.credits-text {
+		font-size: 14px;
+		color: #495057;
+	}
+	
+	.percentage {
+		font-size: 14px;
+		font-weight: 600;
+		color: #6c757d;
+		padding: 2px 8px;
+		border-radius: 4px;
+		background: #f8f9fa;
+	}
+	
+	.percentage.complete {
+		background: #d4edda;
+		color: #155724;
+	}
+	
+	.progress-bar {
+		width: 100%;
+		height: 6px;
+		background: #e9ecef;
+		border-radius: 3px;
+		overflow: hidden;
+	}
+	
+	.progress-fill {
+		height: 100%;
+		background: #007bff;
+		transition: width 0.3s ease, background-color 0.3s ease;
+		border-radius: 3px;
+	}
+	
+	.progress-fill.complete {
+		background: #28a745;
 	}
 
 	.requirement-group h3 {
@@ -791,7 +884,9 @@
 		cursor: grab;
 		transition: all 0.2s ease;
 		position: relative;
-		max-width: 100%;
+		max-width: calc(100% - 20px);
+		min-width: calc(100% - 20px);
+		width: calc(100% - 20px);
 	}
 
 	.course-card:hover {

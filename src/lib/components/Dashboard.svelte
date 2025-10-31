@@ -7,11 +7,27 @@
 	
 	let activeTab = 'requirements';
 	let requirementsList;
+	let editingRequirement = null;
 	
 	function handleRequirementAdded(event) {
 		if (requirementsList) {
 			requirementsList.handleRequirementAdded(event);
 		}
+	}
+	
+	function handleRequirementUpdated(event) {
+		if (requirementsList) {
+			requirementsList.handleRequirementUpdated(event); // Use the proper update handler
+		}
+		editingRequirement = null; // Clear editing mode
+	}
+	
+	function handleFullEdit(event) {
+		editingRequirement = event.detail;
+	}
+	
+	function handleCancelEdit() {
+		editingRequirement = null;
 	}
 </script>
 
@@ -53,10 +69,18 @@
 				<div class="requirements-layout">
 					<div class="requirements-grid">
 						<div class="form-section">
-							<RequirementsForm on:requirementAdded={handleRequirementAdded} />
+							<RequirementsForm 
+								bind:editingRequirement
+								on:requirementAdded={handleRequirementAdded}
+								on:requirementUpdated={handleRequirementUpdated}
+								on:cancelEdit={handleCancelEdit}
+							/>
 						</div>
 						<div class="list-section">
-							<RequirementsList bind:this={requirementsList} />
+							<RequirementsList 
+								bind:this={requirementsList}
+								on:fullEdit={handleFullEdit}
+							/>
 						</div>
 					</div>
 					
@@ -154,10 +178,6 @@
 		gap: 2rem;
 	}
 	
-	.schedule-section {
-		width: 100%;
-	}
-
 	.form-section,
 	.list-section {
 		background: white;
@@ -194,12 +214,6 @@
 	@media (max-width: 768px) {
 		.requirements-grid {
 			grid-template-columns: 1fr;
-		}
-		
-		.header-content {
-			padding: 1rem;
-			flex-direction: column;
-			gap: 1rem;
 		}
 		
 		.nav-container {

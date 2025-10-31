@@ -1,8 +1,10 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, createEventDispatcher } from 'svelte';
 	import { getRequirements, updateRequirement, deleteRequirement, toggleRequirementCompletion } from '$lib/requirements.js';
 	import { enhanceCourseOption } from '$lib/catalog.js';
 	import { checkMigrationNeeded, migrateRequirementsSchema } from '$lib/migration.js';
+	
+	const dispatch = createEventDispatcher();
 	
 	let requirements = [];
 	let loading = true;
@@ -36,6 +38,14 @@
 	// Listen for new requirements from the form
 	export function handleRequirementAdded(event) {
 		requirements = [event.detail, ...requirements];
+	}
+	
+	// Listen for requirement updates from the form
+	export function handleRequirementUpdated(event) {
+		const updatedRequirement = event.detail;
+		requirements = requirements.map(req => 
+			req.id === updatedRequirement.id ? updatedRequirement : req
+		);
 	}
 	
 	$: filteredRequirements = filterCategory === 'All' 
@@ -93,9 +103,8 @@
 		completingRequirement = null;
 	}
 	
-	function startEdit(requirement) {
-		editingId = requirement.id;
-		editData = { ...requirement };
+	function startFullEdit(requirement) {
+		dispatch('fullEdit', requirement);
 	}
 	
 	function cancelEdit() {
@@ -284,10 +293,10 @@
 									{requirement.is_completed ? '✓ Completed' : 'Mark Complete'}
 								</button>
 								
-								<button class="edit-btn" on:click={() => startEdit(requirement)}>
+								<button class="edit-btn" on:click={() => startFullEdit(requirement)}>
 									Edit
 								</button>
-								
+																
 								<button class="delete-btn" on:click={() => handleDelete(requirement.id)}>
 									Delete
 								</button>
@@ -564,6 +573,21 @@
 	
 	.edit-btn:hover {
 		background: #2563eb;
+	}
+	
+	.full-edit-btn {
+		background: #8b5cf6;
+		color: white;
+		border: none;
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.25rem;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+	
+	.full-edit-btn:hover {
+		background: #7c3aed;
 	}
 	
 	.delete-btn {
